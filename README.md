@@ -1,1 +1,1 @@
-# fsys
+# fsys – Go package
