@@ -52,7 +52,7 @@ var assets embed.FS
 var assetsVol = fsys.AddVolume(assets, "ASSETS") // -> "fs://ASSETS"
 
 func main() {
-	data, err := fsys.ReadFile("fs://ASSETS/assets/config.json")
+    data, err := fsys.ReadFile("fs://ASSETS/assets/config.json")
     if err != nil {
         log.Fatal(err)
     }
