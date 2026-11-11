@@ -204,9 +204,8 @@ func (v Volume) ContentHash64() (uint64, error) {
 	return binary.BigEndian.Uint64(hash.Sum(nil)), nil
 }
 
-// OnUpdate starts an endless polling goroutine that calls fn once immediately
-// and again when file paths or contents change. The first successful scan
-// establishes the initial state;
+// OnUpdate starts an endless polling goroutine that calls fn when file paths or
+// contents change. The first successful scan calls fn unless its hash is zero;
 // changes before that scan completes may not be detected. It scans the whole
 // volume every 100 ms. Scan errors are passed to onError, or ignored when it is
 // nil, and polling continues. It panics if fn is nil. Callbacks should return

@@ -1,4 +1,4 @@
-package fsys_test
+package fsys
 
 import (
 	"io/fs"
@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/goldic/fsys"
 )
 
 func TestRuntimeDir(t *testing.T) {
@@ -17,7 +15,7 @@ func TestRuntimeDir(t *testing.T) {
 	if !ok {
 		t.Fatal("caller source is unavailable")
 	}
-	dir := fsys.RuntimeDir()
+	dir := RuntimeDir()
 	if dir != filepath.Dir(file) {
 		t.Fatalf("RuntimeDir = %q; want %q", dir, filepath.Dir(file))
 	}
@@ -28,7 +26,7 @@ func TestRuntimeDir(t *testing.T) {
 	if !strings.Contains(string(data), "func TestRuntimeDir") {
 		t.Fatal("unexpected source file contents")
 	}
-	filesystem, err := fsys.RuntimeDirFS()
+	filesystem, err := RuntimeDirFS()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +44,7 @@ func TestGoSourceMainFileConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			files <- fsys.GoSourceMainFile()
+			files <- GoSourceMainFile()
 		}()
 	}
 	wg.Wait()
@@ -62,7 +60,7 @@ func TestGoSourceMainFileConcurrent(t *testing.T) {
 			t.Errorf("cached source file = %q; want %q", file, first)
 		}
 	}
-	if got := fsys.GoSourceMainDir(); got != filepath.Dir(first) {
+	if got := GoSourceMainDir(); got != filepath.Dir(first) {
 		t.Errorf("GoSourceMainDir = %q; want %q", got, filepath.Dir(first))
 	}
 }

@@ -49,9 +49,10 @@ import (
 //go:embed assets
 var assets embed.FS
 
+var assetsVol = fsys.AddVolume(assets, "ASSETS") // -> "fs://ASSETS"
+
 func main() {
-    root := fsys.AddVolume(assets, "ASSETS")
-    data, err := fsys.ReadFile(root + "/assets/config.json")
+	data, err := fsys.ReadFile("fs://ASSETS/assets/config.json")
     if err != nil {
         log.Fatal(err)
     }
@@ -102,10 +103,9 @@ automatically generated name.
 and contents; empty directories and metadata are not included. It is not a
 cryptographic verifier or a stable persistent identifier. `Volume.OnUpdate`
 starts a polling goroutine that rescans the entire volume every 100 ms and runs
-indefinitely. It calls the update callback once when the goroutine starts, even
-if the initial scan fails. The first successful scan establishes the initial
-state; changes before that scan completes may not be detected. All scan errors are passed to
-the error callback, or ignored if it is `nil`, and polling continues. A nil
+indefinitely. The first successful scan calls the update callback unless its hash
+is zero; changes before that scan completes may not be detected. All scan errors
+are passed to the error callback, or ignored if it is `nil`, and polling continues. A nil
 update callback causes a panic. Scanning can be expensive for large filesystems;
 callbacks must return promptly, and their panics are not recovered.
 

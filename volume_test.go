@@ -1,4 +1,4 @@
-package fsys_test
+package fsys
 
 import (
 	"errors"
@@ -13,40 +13,38 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-
-	"github.com/goldic/fsys"
 )
 
 func TestVolumeRegistration(t *testing.T) {
 	name, root := registerVolume(t, sampleFS())
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if volume.Name() != name || volume.Path() != root || volume.String() != root {
 		t.Fatalf("volume identity: %q, %q, %q", volume.Name(), volume.Path(), volume.String())
 	}
-	assertAddVolumePanics(t, fs.ErrExist, func() { fsys.AddVolume(sampleFS(), name) })
+	assertAddVolumePanics(t, fs.ErrExist, func() { AddVolume(sampleFS(), name) })
 	for _, invalid := range []string{"", "has space", "has/slash", "ümlaut"} {
 		t.Run("invalid name "+invalid, func(t *testing.T) {
-			assertAddVolumePanics(t, fs.ErrInvalid, func() { fsys.AddVolume(sampleFS(), invalid) })
+			assertAddVolumePanics(t, fs.ErrInvalid, func() { AddVolume(sampleFS(), invalid) })
 		})
 	}
 	alias1, alias2 := uniqueName(), uniqueName()
-	aliasRoot := fsys.AddVolume(sampleFS(), alias1, alias2)
+	aliasRoot := AddVolume(sampleFS(), alias1, alias2)
 	if aliasRoot != "fs://"+alias1 {
 		t.Fatalf("aliases = %q", aliasRoot)
 	}
-	if _, err := fsys.ReadFile("fs://" + alias2 + "/dir/a1.txt"); err != nil {
+	if _, err := ReadFile("fs://" + alias2 + "/dir/a1.txt"); err != nil {
 		t.Errorf("alias read: %v", err)
 	}
 	unregistered := uniqueName()
-	assertAddVolumePanics(t, fs.ErrExist, func() { fsys.AddVolume(sampleFS(), unregistered, name) })
-	if _, err := fsys.VolumeByName(unregistered); !errors.Is(err, fs.ErrNotExist) {
+	assertAddVolumePanics(t, fs.ErrExist, func() { AddVolume(sampleFS(), unregistered, name) })
+	if _, err := VolumeByName(unregistered); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("partial registration was not atomic: %v", err)
 	}
 	duplicate := uniqueName()
-	assertAddVolumePanics(t, fs.ErrExist, func() { fsys.AddVolume(sampleFS(), duplicate, duplicate) })
+	assertAddVolumePanics(t, fs.ErrExist, func() { AddVolume(sampleFS(), duplicate, duplicate) })
 }
 
 func assertAddVolumePanics(t *testing.T, want error, fn func()) {
@@ -63,12 +61,12 @@ func assertAddVolumePanics(t *testing.T, want error, fn func()) {
 
 func TestAddVolumeDefersFilesystemErrors(t *testing.T) {
 	name := uniqueName()
-	assertAddVolumePanics(t, fs.ErrInvalid, func() { fsys.AddVolume(nil, name) })
-	if _, err := fsys.VolumeByName(name); !errors.Is(err, fs.ErrNotExist) {
+	assertAddVolumePanics(t, fs.ErrInvalid, func() { AddVolume(nil, name) })
+	if _, err := VolumeByName(name); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("nil filesystem was registered: %v", err)
 	}
-	root := fsys.AddVolume(failingFS{fs.ErrPermission})
-	if _, err := fsys.ReadFile(root + "/file"); !errors.Is(err, fs.ErrPermission) {
+	root := AddVolume(failingFS{fs.ErrPermission})
+	if _, err := ReadFile(root + "/file"); !errors.Is(err, fs.ErrPermission) {
 		t.Errorf("opening failing filesystem: %v", err)
 	}
 }
@@ -82,8 +80,8 @@ func TestConcurrentRegistrationAndLookup(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			root := fsys.AddVolume(sampleFS())
-			if _, err := fsys.ReadFile(root + "/dir/a1.txt"); err != nil {
+			root := AddVolume(sampleFS())
+			if _, err := ReadFile(root + "/dir/a1.txt"); err != nil {
 				errs <- err
 			}
 			roots <- root
@@ -109,7 +107,7 @@ func TestConcurrentRegistrationAndLookup(t *testing.T) {
 
 func TestVolumeMethodsAndSubVolume(t *testing.T) {
 	name, _ := registerVolume(t, sampleFS())
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +154,7 @@ func TestVolumeMethodsAndSubVolume(t *testing.T) {
 	if err != nil || named.Path() != "fs://"+subName {
 		t.Fatalf("named subvolume = %v, %v", named, err)
 	}
-	data, err = fsys.ReadFile(named.Path() + "/a2.txt")
+	data, err = ReadFile(named.Path() + "/a2.txt")
 	if err != nil || string(data) != "two" {
 		t.Errorf("named subvolume read = %q, %v", data, err)
 	}
@@ -177,14 +175,14 @@ func TestVolumeMethodsAndSubVolume(t *testing.T) {
 func TestVolumeErrors(t *testing.T) {
 	_, root := registerVolume(t, failingFS{fs.ErrPermission})
 	name := strings.TrimPrefix(root, "fs://")
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := volume.Exists("file"); !errors.Is(err, fs.ErrPermission) {
 		t.Errorf("Exists permission error = %v", err)
 	}
-	if _, err := fsys.FileExists(root + "/file"); !errors.Is(err, fs.ErrPermission) {
+	if _, err := FileExists(root + "/file"); !errors.Is(err, fs.ErrPermission) {
 		t.Errorf("FileExists permission error = %v", err)
 	}
 	if _, err := volume.ContentHash64(); !errors.Is(err, fs.ErrPermission) {
@@ -195,7 +193,7 @@ func TestVolumeErrors(t *testing.T) {
 
 func TestContentHash64(t *testing.T) {
 	name, _ := registerVolume(t, sampleFS())
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +208,7 @@ func TestContentHash64(t *testing.T) {
 	changed := sampleFS()
 	changed["dir/a1.txt"] = &fstest.MapFile{Data: []byte("changed")}
 	changedName, _ := registerVolume(t, changed)
-	changedVolume, err := fsys.VolumeByName(changedName)
+	changedVolume, err := VolumeByName(changedName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +289,7 @@ func TestOnUpdate(t *testing.T) {
 		scanObserved: make(chan struct{}, 1),
 	}
 	name, _ := registerVolume(t, filesystem)
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +339,7 @@ func TestOnUpdateWithoutErrorCallback(t *testing.T) {
 		scanObserved:    make(chan struct{}, 1),
 	}
 	name, _ := registerVolume(t, filesystem)
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +374,7 @@ func TestOnUpdateInitialError(t *testing.T) {
 	}
 	filesystem.state.Store(2)
 	name, _ := registerVolume(t, filesystem)
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +391,6 @@ func TestOnUpdateInitialError(t *testing.T) {
 		default:
 		}
 	})
-	waitForInitialUpdate(t, updates)
 	select {
 	case err := <-failures:
 		if !errors.Is(err, fs.ErrPermission) {
@@ -402,7 +399,13 @@ func TestOnUpdateInitialError(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("timed out waiting for initial scan error")
 	}
+	select {
+	case <-updates:
+		t.Fatal("update was called after a failed initial scan")
+	default:
+	}
 	filesystem.state.Store(0)
+	waitForInitialUpdate(t, updates)
 	waitForScan(t, filesystem)
 	filesystem.state.Store(1)
 	select {
@@ -430,7 +433,7 @@ func TestOnUpdateInitialScanIsAsync(t *testing.T) {
 	filesystem := blockingFS{started: make(chan struct{}, 1), release: make(chan struct{})}
 	defer close(filesystem.release)
 	name, _ := registerVolume(t, filesystem)
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +456,7 @@ func TestOnUpdateInitialScanIsAsync(t *testing.T) {
 
 func TestOnUpdateNilCallback(t *testing.T) {
 	name, _ := registerVolume(t, sampleFS())
-	volume, err := fsys.VolumeByName(name)
+	volume, err := VolumeByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,7 +518,7 @@ func TestContentHash64FileErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var closed atomic.Bool
 			name, _ := registerVolume(t, brokenFileFS{readErr: tc.readErr, closeErr: tc.closeErr, closed: &closed})
-			volume, err := fsys.VolumeByName(name)
+			volume, err := VolumeByName(name)
 			if err != nil {
 				t.Fatal(err)
 			}

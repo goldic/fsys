@@ -1,4 +1,4 @@
-package fsys_test
+package fsys
 
 import (
 	"embed"
@@ -14,8 +14,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
-
-	"github.com/goldic/fsys"
 )
 
 //go:embed fsys_test.go
@@ -30,7 +28,7 @@ func uniqueName() string {
 func registerVolume(t *testing.T, filesystem fs.FS) (string, string) {
 	t.Helper()
 	name := uniqueName()
-	root := fsys.AddVolume(filesystem, name)
+	root := AddVolume(filesystem, name)
 	return name, root
 }
 
@@ -46,7 +44,7 @@ func sampleFS() fstest.MapFS {
 
 func TestParsePathEmbedded(t *testing.T) {
 	_, root := registerVolume(t, embeddedFiles)
-	filesystem, name, err := fsys.ParsePath(root + "/fsys_test.go")
+	filesystem, name, err := ParsePath(root + "/fsys_test.go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +56,7 @@ func TestParsePathEmbedded(t *testing.T) {
 		t.Fatalf("embedded file: %v", err)
 	}
 	for _, path := range []string{root, root + "/"} {
-		_, name, err := fsys.ParsePath(path)
+		_, name, err := ParsePath(path)
 		if err != nil || name != "." {
 			t.Errorf("ParsePath(%q) = %q, %v", path, name, err)
 		}
@@ -81,7 +79,7 @@ func TestLocalPaths(t *testing.T) {
 	}
 	for _, name := range paths {
 		t.Run(name, func(t *testing.T) {
-			filesystem, rel, err := fsys.ParsePath(name)
+			filesystem, rel, err := ParsePath(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -92,17 +90,17 @@ func TestLocalPaths(t *testing.T) {
 			if err != nil || string(data) != "local" {
 				t.Fatalf("ReadFile = %q, %v", data, err)
 			}
-			data, err = fsys.ReadFile(name)
+			data, err = ReadFile(name)
 			if err != nil || string(data) != "local" {
-				t.Fatalf("fsys.ReadFile = %q, %v", data, err)
+				t.Fatalf("ReadFile = %q, %v", data, err)
 			}
 		})
 	}
-	data, err := fsys.ReadFile("fsys_test.go")
+	data, err := ReadFile("fsys_test.go")
 	if err != nil || !strings.Contains(string(data), "func TestLocalPaths") {
 		t.Fatalf("relative path read: %v", err)
 	}
-	matches, err := fsys.Glob(filepath.Join(dir, "loc?l.*"))
+	matches, err := Glob(filepath.Join(dir, "loc?l.*"))
 	if err != nil || !reflect.DeepEqual(matches, []string{filename}) {
 		t.Fatalf("local Glob = %v, %v", matches, err)
 	}
@@ -110,11 +108,11 @@ func TestLocalPaths(t *testing.T) {
 
 func TestVolumePathsAndOperations(t *testing.T) {
 	_, root := registerVolume(t, sampleFS())
-	data, err := fsys.ReadFile(root + "/special?#%")
+	data, err := ReadFile(root + "/special?#%")
 	if err != nil || string(data) != "special" {
 		t.Fatalf("special filename = %q, %v", data, err)
 	}
-	file, err := fsys.Open(root + "/dir/a1.txt")
+	file, err := Open(root + "/dir/a1.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +121,7 @@ func TestVolumePathsAndOperations(t *testing.T) {
 	if err != nil || closeErr != nil || string(data) != "one" {
 		t.Fatalf("Open = %q, %v, close: %v", data, err, closeErr)
 	}
-	entries, err := fsys.ReadDir(root + "/dir")
+	entries, err := ReadDir(root + "/dir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,14 +132,14 @@ func TestVolumePathsAndOperations(t *testing.T) {
 	if !reflect.DeepEqual(names, []string{"a1.txt", "a2.txt", "b.txt", "sub"}) {
 		t.Fatalf("ReadDir = %v", names)
 	}
-	matches, err := fsys.Glob(root + "/dir/a?.txt")
+	matches, err := Glob(root + "/dir/a?.txt")
 	if err != nil || !reflect.DeepEqual(matches, []string{"dir/a1.txt", "dir/a2.txt"}) {
 		t.Fatalf("Glob = %v, %v", matches, err)
 	}
-	if _, err := fsys.Glob(root + "/["); !errors.Is(err, path.ErrBadPattern) {
+	if _, err := Glob(root + "/["); !errors.Is(err, path.ErrBadPattern) {
 		t.Errorf("invalid Glob error = %v", err)
 	}
-	dirFS, err := fsys.Dir(root + "/dir")
+	dirFS, err := Dir(root + "/dir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +147,7 @@ func TestVolumePathsAndOperations(t *testing.T) {
 	if err != nil || string(data) != "nested" {
 		t.Fatalf("Dir = %q, %v", data, err)
 	}
-	info, err := fsys.Stat(root + "/dir/a1.txt")
+	info, err := Stat(root + "/dir/a1.txt")
 	if err != nil || info.Name() != "a1.txt" {
 		t.Fatalf("Stat = %v, %v", info, err)
 	}
@@ -157,12 +155,12 @@ func TestVolumePathsAndOperations(t *testing.T) {
 		path string
 		want bool
 	}{{"dir", true}, {"dir/a1.txt", false}} {
-		got, err := fsys.IsDir(root + "/" + tc.path)
+		got, err := IsDir(root + "/" + tc.path)
 		if err != nil || got != tc.want {
 			t.Errorf("IsDir(%s) = %v, %v", tc.path, got, err)
 		}
 	}
-	if _, err := fsys.IsDir(root + "/missing"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := IsDir(root + "/missing"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("IsDir missing error = %v", err)
 	}
 }
@@ -170,22 +168,22 @@ func TestVolumePathsAndOperations(t *testing.T) {
 func TestPathErrors(t *testing.T) {
 	_, root := registerVolume(t, sampleFS())
 	for _, name := range []string{"", "https://example.com/file", "fs://UNKNOWN_VOLUME/file"} {
-		if _, _, err := fsys.ParsePath(name); err == nil {
+		if _, _, err := ParsePath(name); err == nil {
 			t.Errorf("ParsePath(%q) succeeded", name)
 		}
 	}
 	for _, name := range []string{"../secret", "/absolute", "dir/../secret"} {
-		if _, err := fsys.ReadFile(root + "/" + name); err == nil {
+		if _, err := ReadFile(root + "/" + name); err == nil {
 			t.Errorf("ReadFile(%q) succeeded", name)
 		}
 	}
 	for _, path := range []string{root + "/dir/a1.txt", root + "/missing"} {
-		got, err := fsys.FileExists(path)
+		got, err := FileExists(path)
 		if err != nil || got != strings.HasSuffix(path, "a1.txt") {
 			t.Errorf("FileExists(%q) = %v, %v", path, got, err)
 		}
 	}
-	if _, err := fsys.FileExists("fs://UNKNOWN_VOLUME/file"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := FileExists("fs://UNKNOWN_VOLUME/file"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("missing volume error = %v", err)
 	}
 }
@@ -200,7 +198,7 @@ func TestPredefinedHomeVolume(t *testing.T) {
 		t.Skipf("cannot stat home: %v", err)
 	}
 	for _, path := range []string{"fs://HOME", "fs://HOME/"} {
-		info, err := fsys.Stat(path)
+		info, err := Stat(path)
 		if err != nil || !os.SameFile(local, info) {
 			t.Errorf("Stat(%q) = %v, %v", path, info, err)
 		}
