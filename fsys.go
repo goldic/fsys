@@ -29,8 +29,7 @@ const prefix = "fs://"
 // a slash-separated name suitable for io/fs. Relative local paths are resolved
 // against the current working directory. Named paths are not URL-decoded.
 func ParsePath(name string) (fs.FS, string, error) {
-	if strings.HasPrefix(name, prefix) {
-		rest := strings.TrimPrefix(name, prefix)
+	if rest, ok := strings.CutPrefix(name, prefix); ok {
 		volumeName, path, _ := strings.Cut(rest, "/")
 		v, err := VolumeByName(volumeName)
 		if err != nil {

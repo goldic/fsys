@@ -217,16 +217,11 @@ func (v Volume) OnUpdate(fn func(), onError func(error)) {
 	}
 	go func() {
 		for prev := uint64(0); ; time.Sleep(100 * time.Millisecond) {
-			h64, err := v.ContentHash64()
-			if err != nil {
-				if onError != nil {
-					onError(err)
-				}
-				continue
-			}
-			if h64 != prev {
+			if h64, err := v.ContentHash64(); err == nil && h64 != prev {
 				prev = h64
 				fn()
+			} else if err != nil && onError != nil {
+				onError(err)
 			}
 		}
 	}()
