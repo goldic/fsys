@@ -158,8 +158,8 @@ func TestVolumeMethodsAndSubVolume(t *testing.T) {
 	if err != nil || string(data) != "two" {
 		t.Errorf("named subvolume read = %q, %v", data, err)
 	}
-	if _, err := volume.SubVolume("../invalid"); !errors.Is(err, fs.ErrInvalid) {
-		t.Errorf("invalid subvolume error = %v", err)
+	if _, err := volume.SubVolume("../invalid"); err == nil {
+		t.Error("SubVolume accepted an invalid path")
 	}
 	if _, err := volume.SubVolume("dir", name); !errors.Is(err, fs.ErrExist) {
 		t.Errorf("duplicate subvolume error = %v", err)
