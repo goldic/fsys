@@ -1,9 +1,14 @@
 # fsys
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/goldic/fsys.svg)](https://pkg.go.dev/github.com/goldic/fsys)
+[![CI](https://github.com/goldic/fsys/actions/workflows/ci.yml/badge.svg)](https://github.com/goldic/fsys/actions/workflows/ci.yml)
+
 `fsys` is a small, read-only Go package for accessing local files and named
 [`io/fs`](https://pkg.go.dev/io/fs) filesystems through a common path format.
 It can also search multiple filesystems in order. It has no external dependencies
 and requires Go 1.20 or later.
+
+## Installation
 
 ```sh
 go get github.com/goldic/fsys
@@ -64,8 +69,8 @@ func main() {
 name if none are supplied. A nil filesystem or duplicate or invalid names cause
 a panic; no names are registered in that case. Registration does not otherwise
 check the filesystem: errors are reported when it is accessed. The registry is
-global and safe for concurrent access. Registered filesystems must themselves support
-concurrent reads when used concurrently. There is no unregister operation.
+global and safe for concurrent access. Registered filesystems must themselves
+support concurrent reads when used concurrently. There is no unregister operation.
 
 Use `VolumeByName` to obtain a `Volume`, which implements `fs.FS` and has
 `Open`, `ReadFile`, `ReadDir`, `Stat`, `Glob`, and `Sub` methods. Names passed to
@@ -105,8 +110,8 @@ cryptographic verifier or a stable persistent identifier. `Volume.OnUpdate`
 starts a polling goroutine that rescans the entire volume every 100 ms and runs
 indefinitely. The first successful scan calls the update callback unless its hash
 is zero; changes before that scan completes may not be detected. All scan errors
-are passed to the error callback, or ignored if it is `nil`, and polling continues. A nil
-update callback causes a panic. Scanning can be expensive for large filesystems;
+are passed to the error callback, or ignored if it is `nil`, and polling continues.
+A nil update callback causes a panic. Scanning can be expensive for large filesystems;
 callbacks must return promptly, and their panics are not recovered.
 
 `RuntimeDir`, `RuntimeDirFS`, `GoSourceMainFile`, and `GoSourceMainDir` are
@@ -115,6 +120,18 @@ stack; these paths may be trimmed at build time, may not exist on the machine
 running the binary, and do not identify the executable directory. The main-file
 heuristic is cached on first use and can produce a different result if called
 from a goroutine. Do not depend on these helpers to locate production resources.
+
+## Development
+
+Run the checks from the module directory:
+
+```sh
+GOWORK=off go test ./...
+GOWORK=off go test -race ./...
+```
+
+CI also checks Go 1.20 and the latest stable Go release on Linux, and the
+latest stable release on macOS and Windows.
 
 ## License
 

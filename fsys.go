@@ -1,5 +1,17 @@
-// Package fsys provides read-only access to local files and named io/fs file
-// systems through a common path format. Named paths have the form fs://NAME/path.
+// Package fsys provides read-only access to local files and named [io/fs] file
+// systems through a common path format. Local paths use the operating system's
+// path conventions; named volume paths have the form fs://NAME/path and use
+// slash-separated io/fs paths. Volume paths are not URL-decoded.
+//
+// Register a filesystem with AddVolume, then access files through the returned
+// path using Open, ReadFile, ReadDir, Glob, or Stat:
+//
+//	root := fsys.AddVolume(assets, "ASSETS")
+//	data, err := fsys.ReadFile(root + "/config.json")
+//
+// The registry is safe for concurrent access. Registered filesystems must
+// support concurrent reads if they are used concurrently. MergedFS searches
+// multiple filesystems in order, but does not merge directory entries.
 package fsys
 
 import (
